@@ -1,8 +1,34 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext.jsx";
+import RequireAuth from "./auth/RequireAuth.jsx";
+import AuthPage from "./pages/AuthPage.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import ProductPage from "./pages/ProductPage.jsx";
+
 export default function App() {
   return (
-    <div className="container">
-      <h1>Price Watcher</h1>
-      <p className="muted">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Amet sequi expedita laboriosam, tempore nulla perspiciatis a adipisci velit hic odit magni enim consectetur. Itaque, aperiam in mollitia earum voluptates fuga?</p>
-    </div>
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/register" element={<AuthPage />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/products/:id"
+          element={
+            <RequireAuth>
+              <ProductPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }

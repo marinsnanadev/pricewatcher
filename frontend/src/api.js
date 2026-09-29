@@ -27,6 +27,7 @@ function findProduct(id, userId) {
 export const api = {
   async register(email, password) {
     await delay();
+    email = (email || "").trim().toLowerCase();
     if (!email || !email.includes("@")) throw new Error("Invalid email");
     if (!password || password.length < 8) {
       throw new Error("Password must be at least 8 characters long");
@@ -42,6 +43,7 @@ export const api = {
 
   async login(email, password) {
     await delay();
+    email = (email || "").trim().toLowerCase();
     const user = store.getUsers().find((u) => u.email === email);
     if (!user || user.password !== password) {
       throw new Error("Invalid email or password");

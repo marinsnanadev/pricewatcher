@@ -2,8 +2,6 @@ import { store, uuid, delay } from "./mock/mockStore.js";
 import { fakeScrape, fluctuate } from "./mock/mockScraper.js";
 import { seedIfEmpty } from "./mock/seed.js";
 
-const TOKEN_KEY = "pw_mock_token"; // mantém o mesmo nome de conceito da versão real
-
 export function getToken() {
   return store.getCurrentUserId();
 }
@@ -14,7 +12,7 @@ export function clearToken() {
 
 function requireAuth() {
   const userId = store.getCurrentUserId();
-  if (!userId) throw new Error("Não autenticado");
+  if (!userId) throw new Error("Not authenticated");
   return userId;
 }
 
@@ -22,20 +20,20 @@ function findProduct(id, userId) {
   const product = (store.getProducts() || []).find(
     (p) => p.id === id && p.user_id === userId
   );
-  if (!product) throw new Error("Produto não encontrado");
+  if (!product) throw new Error("Product not found");
   return product;
 }
 
 export const api = {
   async register(email, password) {
     await delay();
-    if (!email || !email.includes("@")) throw new Error("E-mail inválido");
+    if (!email || !email.includes("@")) throw new Error("Invalid email");
     if (!password || password.length < 8) {
-      throw new Error("A senha precisa ter pelo menos 8 caracteres");
+      throw new Error("Password must be at least 8 characters long");
     }
     const users = store.getUsers();
     if (users.some((u) => u.email === email)) {
-      throw new Error("E-mail já cadastrado");
+      throw new Error("Email already registered");
     }
     const user = { id: uuid(), email, password, created_at: new Date().toISOString() };
     store.setUsers([...users, user]);
@@ -46,7 +44,7 @@ export const api = {
     await delay();
     const user = store.getUsers().find((u) => u.email === email);
     if (!user || user.password !== password) {
-      throw new Error("E-mail ou senha inválidos");
+      throw new Error("Invalid email or password");
     }
     store.setCurrentUserId(user.id);
     seedIfEmpty(user.id);
@@ -57,7 +55,7 @@ export const api = {
     await delay();
     const userId = requireAuth();
     const user = store.getUsers().find((u) => u.id === userId);
-    if (!user) throw new Error("Usuário não encontrado");
+    if (!user) throw new Error("User not found");
     return { id: user.id, email: user.email, created_at: user.created_at };
   },
 
@@ -68,9 +66,9 @@ export const api = {
   },
 
   async createProduct(url, targetPrice) {
-    await delay(600); // "scraping" demora um pouco mais, de propósito
+    await delay(600); // "scraping" is deliberately slower than other calls
     const userId = requireAuth();
-    if (!url || !url.trim()) throw new Error("Informe a URL do produto");
+    if (!url || !url.trim()) throw new Error("Enter the product URL");
 
     const scraped = fakeScrape(url);
     const product = {
@@ -106,7 +104,7 @@ export const api = {
     const userId = requireAuth();
     const products = store.getProducts() || [];
     const index = products.findIndex((p) => p.id === id && p.user_id === userId);
-    if (index === -1) throw new Error("Produto não encontrado");
+    if (index === -1) throw new Error("Product not found");
 
     products[index] = { ...products[index], ...payload };
     store.setProducts(products);
@@ -126,17 +124,18 @@ export const api = {
   async getHistory(id) {
     await delay();
     const userId = requireAuth();
-    findProduct(id, userId); // valida posse/existência
+    findProduct(id, userId); // validates ownership/existence
     return (store.getHistory() || [])
       .filter((h) => h.product_id === id)
       .sort((a, b) => new Date(a.collected_at) - new Date(b.collected_at));
   },
 
   /**
-   * Só existe no mock: simula "passar um ciclo do scheduler" pra um
-   * produto, variando o preço. Útil pra testar visualmente o que acontece
-   * quando o preço cai abaixo do alvo. A tela de produto expõe um botão
-   * pra isso — não existirá na versão conectada à API real.
+   * Mock-only helper: simulates "one scheduler cycle" for a product,
+   * nudging its price up or down. Useful for visually testing what happens
+   * when a price drops below the target. The product page exposes a
+   * button for this — it won't exist once this file is wired to the real
+   * API, since that check runs server-side on a timer instead.
    */
   async simulatePriceCheck(id) {
     await delay(500);

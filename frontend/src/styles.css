@@ -1,68 +1,269 @@
+/* ============================================================
+   Design tokens
+   Direction: a market-ledger aesthetic for a price-tracking tool.
+   Prices are the core content, so they get a monospace treatment
+   (functionally justified: tabular figures align cleanly), while
+   everything else uses a single distinct display/body face.
+   ============================================================ */
+
 :root {
-  --bg: #0f1115;
-  --card: #171a21;
-  --border: #2a2e38;
-  --text: #e8e9ec;
-  --muted: #9aa0ac;
-  --accent: #4f7cff;
-  --positive: #3ddc84;
-  --negative: #ff6b6b;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* Color */
+  --bg: #10131a; /* deep ink navy, not pure black */
+  --surface: #171c26;
+  --surface-raised: #1e2430;
+  --border: #2a3140;
+  --text: #eef0f4;
+  --text-muted: #8b93a3;
+
+  --accent: #e3a34e; /* amber — "deal / tag" color, primary actions */
+  --accent-strong: #f0b868;
+  --accent-ink: #2a1c08; /* text color on top of accent-filled surfaces */
+
+  --drop: #4fae94; /* price fell — good news for the shopper */
+  --rise: #a8546b; /* price rose — a muted wine tone, not a stock-red cliché */
+
+  /* Type */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Layout */
+  --content-width: 640px;
+  --radius: 10px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--font-display);
+}
+
+body {
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .container {
-  max-width: 640px;
+  max-width: var(--content-width);
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 40px 20px 80px;
 }
+
+/* ============================================================
+   Typography
+   ============================================================ */
 
 h1 {
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
 }
 
-.card {
-  background: var(--card);
+h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+
+p {
+  max-width: 62ch;
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.error {
+  color: var(--rise);
+  font-size: 0.875rem;
+  margin: 4px 0 10px;
+}
+
+/* Monospace treatment reserved for actual data: prices, dates, store
+   identifiers, deltas — never for prose or headings. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Panels
+   A "panel" is a bordered block used for forms and grouped content.
+   Deliberately flat (no drop shadow) — the ticker rows below carry
+   the visual interest instead of a uniform card-shadow treatment.
+   ============================================================ */
+
+.panel {
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
 }
 
-input, select, button {
-  font-size: 1rem;
-  padding: 10px 12px;
-  border-radius: 8px;
+/* ============================================================
+   Ticker row
+   The core recurring unit: one tracked product, styled like a
+   line in a trading ledger rather than a generic card. A thin
+   left accent bar communicates status without a full colored
+   background or a repeated card-shadow.
+   ============================================================ */
+
+.ticker-row {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface);
   border: 1px solid var(--border);
-  background: #0d0f14;
-  color: var(--text);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  transition: border-left-color 120ms ease;
 }
 
-input, select {
-  width: 100%;
+.ticker-row.status-tracking {
+  border-left-color: var(--accent);
+}
+
+.ticker-row.status-below-target {
+  border-left-color: var(--drop);
+}
+
+.ticker-row:hover {
+  border-color: var(--accent);
+}
+
+.ticker-row-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.ticker-row-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
   margin-bottom: 10px;
 }
 
-button {
-  background: var(--accent);
-  border: none;
-  color: white;
-  cursor: pointer;
+.ticker-row-prices {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.price-with-delta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.3rem;
   font-weight: 600;
+}
+
+.price.below-target {
+  color: var(--drop);
+}
+
+.price-target {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.delta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.delta.down {
+  color: var(--drop);
+}
+
+.delta.up {
+  color: var(--rise);
+}
+
+/* ============================================================
+   Forms
+   ============================================================ */
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+input,
+select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0d1017;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+button {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+button:hover {
+  background: var(--accent-strong);
 }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 button.secondary {
@@ -71,8 +272,32 @@ button.secondary {
   color: var(--text);
 }
 
+button.secondary:hover {
+  background: var(--surface-raised);
+}
+
 button.danger {
-  background: var(--negative);
+  background: transparent;
+  border: 1px solid var(--rise);
+  color: var(--rise);
+}
+
+button.danger:hover {
+  background: var(--rise);
+  color: var(--text);
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 0;
+  font-weight: 500;
+}
+
+button.link:hover {
+  color: var(--text);
+  background: none;
 }
 
 .row {
@@ -81,94 +306,65 @@ button.danger {
   align-items: center;
 }
 
-.product-card {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-}
-
-.product-card:hover {
-  border-color: var(--accent);
-}
-
-.product-title {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.price-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.price {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.price.below-target {
-  color: var(--positive);
-}
-
-.muted {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.error {
-  color: var(--negative);
-  font-size: 0.875rem;
-  margin: 4px 0 10px;
-}
-
-.tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.tabs button {
-  flex: 1;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-
-.tabs button.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
-.history-chart {
-  width: 100%;
-  height: 140px;
-  margin: 12px 0;
-}
+/* ============================================================
+   Layout helpers
+   ============================================================ */
 
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 28px;
 }
 
-.link-button {
-  background: none;
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  flex: none;
+  background: transparent;
   border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 4px 8px;
-  font-size: 0.875rem;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  padding: 8px 4px;
+  margin-right: 20px;
+}
+
+.tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tabs button:hover {
+  background: none;
+  color: var(--text);
+}
+
+.history-chart {
+  width: 100%;
+  height: 140px;
+  margin: 16px 0 8px;
 }
 
 .mock-banner {
-  background: #2a2416;
-  border: 1px solid #6b5a1f;
-  color: #e8c766;
+  background: #241d0e;
+  border: 1px solid #4a3a16;
+  color: var(--accent-strong);
   border-radius: 8px;
   padding: 8px 12px;
-  font-size: 0.8rem;
-  margin-bottom: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  margin-bottom: 20px;
+}
+
+/* Reduced motion: respect the user's OS-level preference. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

@@ -16,8 +16,8 @@ export function seedIfEmpty(userId) {
     {
       id: productA,
       user_id: userId,
-      url: "https://www.mercadolivre.com.br/tenis-esportivo-confort-run",
-      name: "Tênis Esportivo Confort Run",
+      url: "https://www.mercadolivre.com.br/confort-run-sport-sneakers",
+      name: "Confort Run Sport Sneakers",
       store: "mercado_livre",
       current_price: 249.9,
       target_price: 199.9,
@@ -28,8 +28,8 @@ export function seedIfEmpty(userId) {
     {
       id: productB,
       user_id: userId,
-      url: "https://www.amazon.com.br/fone-bluetooth-xyz",
-      name: "Fone de Ouvido Bluetooth XYZ",
+      url: "https://www.amazon.com/xyz-bluetooth-headphones",
+      name: "XYZ Bluetooth Headphones",
       store: "amazon",
       current_price: 179.0,
       target_price: 150.0,

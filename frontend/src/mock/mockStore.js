@@ -1,3 +1,4 @@
+
 const KEYS = {
   users: "pw_mock_users",
   currentUserId: "pw_mock_current_user_id",
@@ -37,7 +38,7 @@ export function uuid() {
   return crypto.randomUUID();
 }
 
-/** Simula latência de rede, pra a UI de loading fazer sentido durante os testes de UX. */
+/** Simulates network latency, so loading UI makes sense while testing the UX. */
 export function delay(ms = 350) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

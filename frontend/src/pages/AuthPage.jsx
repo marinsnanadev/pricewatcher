@@ -51,10 +51,6 @@ export default function AuthPage() {
         Paste a product link and get alerted when the price drops below your target.
       </p>
 
-      <div className="mock-banner">
-        Mock mode: accounts live in this browser only (localStorage).
-      </div>
-
       <div className="panel">
         <div className="tabs" role="tablist">
           <button

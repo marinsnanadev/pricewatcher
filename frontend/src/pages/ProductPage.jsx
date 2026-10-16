@@ -13,7 +13,7 @@ export default function ProductPage() {
   const [targetInput, setTargetInput] = useState("");
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
-  const [busy, setBusy] = useState(""); // which action is running: "simulate" | "save" | "toggle" | "delete"
+  const [busy, setBusy] = useState(""); // which action is running: "save" | "toggle" | "delete"
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const load = useCallback(async () => {
@@ -39,12 +39,6 @@ export default function ProductPage() {
       setBusy("");
     }
   }
-
-  const simulate = () =>
-    run("simulate", async () => {
-      await api.simulatePriceCheck(id);
-      await load();
-    });
 
   const saveTarget = (e) => {
     e.preventDefault();
@@ -136,15 +130,6 @@ export default function ProductPage() {
             <span>{formatDate(history[history.length - 1].collected_at)}</span>
           </div>
         )}
-      </div>
-
-      <div className="mock-banner">
-        Mock mode: simulates one scheduler cycle and moves the price up or down.
-      </div>
-      <div className="row" style={{ marginBottom: 20 }}>
-        <button type="button" className="secondary" onClick={simulate} disabled={busy !== ""}>
-          {busy === "simulate" ? "Checking…" : "Simulate a price check"}
-        </button>
       </div>
 
       <form className="panel" onSubmit={saveTarget} noValidate>

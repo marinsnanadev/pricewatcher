@@ -70,6 +70,38 @@ Docs: http://localhost:8000/docs
 | `alembic` / `uvicorn` is not recognized | The venv is not active, so the scripts were installed outside your PATH. Activate the venv and reinstall, or use `python -m alembic ...` / `python -m uvicorn ...` from the venv. |
 | `Activate.ps1` cannot be loaded | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again. |
 
+## Scheduled jobs (Celery + Redis)
+
+Three processes run side by side: the API, a **worker** (does the scraping) and **beat**
+(a clock that, every minute, queues the products whose time has come).
+
+```bash
+# 1) Redis (easiest with Docker)
+docker run -d --name pw-redis -p 6379:6379 redis:7
+
+# 2) apply the new migration
+alembic upgrade head
+
+# 3) in separate terminals, all inside the venv:
+uvicorn app.main:app --reload
+celery -A app.celery_app worker -l info
+celery -A app.celery_app beat -l info
+```
+
+> **Windows:** Celery's default pool doesn't work there. Start the worker with
+> `celery -A app.celery_app worker -l info --pool=solo`.
+
+How it works:
+
+- Each product has its own `check_interval_minutes` (default 6h) and `next_check_at`.
+  Beat runs `dispatch_due`, which enqueues one `check_product` job per due product,
+  with a random start delay and ±10% on the next interval so jobs never all hit the stores at once.
+- Network errors and blocks (`FetchError`) are retried up to 3 times with exponential backoff + jitter.
+  Parse errors aren't retried (a retry won't fix a changed layout) — they are recorded.
+- Every attempt is saved in `scrape_runs` (status, price, which layer found it, duration, error).
+  The price history only grows when the price moves, plus one heartbeat point per day.
+- `POST /products/{id}/check` queues a check right now; `GET /products/{id}/runs` shows the latest attempts.
+
 ## Tests
 
 ```bash
@@ -86,6 +118,8 @@ python -m pytest
 | GET/POST | `/products` | list / create (scrapes the URL) |
 | GET/PATCH/DELETE | `/products/{id}` | |
 | GET | `/products/{id}/history` | price history |
+| POST | `/products/{id}/check` | queue an immediate check (202) |
+| GET | `/products/{id}/runs` | latest scraping attempts |
 
 ## Scraping
 

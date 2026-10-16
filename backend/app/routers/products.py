@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import PriceHistory, Product, User
-from ..schemas import PriceOut, ProductCreate, ProductOut, ProductUpdate
+from ..config import settings
+from ..models import PriceHistory, Product, ScrapeRun, User, utcnow
+from ..schemas import PriceOut, ProductCreate, ProductOut, ProductUpdate, ScrapeRunOut
+from ..services.scheduling import next_check_time
 from ..services.scraping import (
     FetchError,
     ParseError,
@@ -21,6 +25,18 @@ router = APIRouter(prefix="/products", tags=["products"])
 def get_scrape_fn():
     """Dependency so tests can swap the real network scraper for a fake one."""
     return scrape
+
+
+def get_enqueue():
+    """Dependency returning the function that queues an immediate check.
+    Imported lazily so the API can boot (and tests run) without Celery/Redis."""
+
+    def enqueue(product_id: str) -> None:
+        from ..tasks import check_product_task
+
+        check_product_task.delay(product_id, trigger="manual")
+
+    return enqueue
 
 
 def get_owned_product(product_id: str, user: User, db: Session) -> Product:
@@ -62,7 +78,11 @@ def create_product(
     if not url.startswith(("http://", "https://")):
         raise HTTPException(422, "Enter a valid product URL")
 
+    now = utcnow()
+    clock = time.perf_counter()
     result = run_scrape(scrape_fn, url)
+    duration_ms = int((time.perf_counter() - clock) * 1000)
+
     product = Product(
         user_id=user.id,
         url=url,
@@ -70,8 +90,22 @@ def create_product(
         store=result.store,
         current_price=result.price,
         target_price=payload.target_price,
+        check_interval_minutes=settings.default_check_interval_minutes,
+        last_checked_at=now,
     )
-    product.history.append(PriceHistory(price=result.price))
+    product.next_check_at = next_check_time(product, now)
+    product.history.append(PriceHistory(price=result.price, collected_at=now))
+    product.runs.append(
+        ScrapeRun(
+            store=result.store,
+            trigger="create",
+            status="success",
+            price=result.price,
+            source=result.source,
+            duration_ms=duration_ms,
+            started_at=now,
+        )
+    )
     db.add(product)
     db.commit()
     return product
@@ -93,8 +127,13 @@ def update_product(
 ):
     product = get_owned_product(product_id, user, db)
     # only touch the fields the client actually sent (so target_price can be cleared with null)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        if value is None and field != "target_price":
+            continue  # active / interval can't be cleared
         setattr(product, field, value)
+    if changes.get("check_interval_minutes"):
+        product.next_check_at = next_check_time(product, utcnow())
     db.commit()
     return product
 
@@ -114,3 +153,30 @@ def get_history(
 ):
     product = get_owned_product(product_id, user, db)
     return product.history
+
+
+@router.post("/{product_id}/check", status_code=status.HTTP_202_ACCEPTED)
+def check_now(
+    product_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    enqueue=Depends(get_enqueue),
+):
+    """Queues an immediate price check (the worker does the actual scraping)."""
+    product = get_owned_product(product_id, user, db)
+    try:
+        enqueue(product.id)
+    except Exception:  # broker down (Redis not running, etc.)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Job queue unavailable, try again later")
+    return {"status": "queued"}
+
+
+@router.get("/{product_id}/runs", response_model=list[ScrapeRunOut])
+def get_runs(
+    product_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = get_owned_product(product_id, user, db)
+    return product.runs[:limit]

@@ -29,6 +29,7 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     target_price: float | None = Field(default=None, gt=0)
     active: bool | None = None
+    check_interval_minutes: int | None = Field(default=None, ge=15, le=10080)
 
 
 class ProductOut(BaseModel):
@@ -42,6 +43,10 @@ class ProductOut(BaseModel):
     target_price: float | None
     active: bool
     last_error: str | None
+    check_interval_minutes: int
+    last_checked_at: datetime | None
+    next_check_at: datetime | None
+    consecutive_failures: int
     created_at: datetime
 
 
@@ -52,3 +57,20 @@ class PriceOut(BaseModel):
     product_id: str
     price: float
     collected_at: datetime
+
+
+class ScrapeRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    product_id: str
+    store: str
+    trigger: str
+    attempt: int
+    status: str
+    price: float | None
+    source: str | None
+    error_type: str | None
+    error_message: str | None
+    duration_ms: int
+    started_at: datetime

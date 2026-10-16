@@ -66,3 +66,56 @@ def test_users_cannot_see_each_others_products(client, auth):
 def test_products_require_auth(client):
     assert client.get("/products").status_code == 401
     assert client.post("/products", json={"url": URL}).status_code == 401
+
+
+def test_create_sets_up_scheduling_and_first_run(client, auth):
+    product = create(client, auth).json()
+    assert product["check_interval_minutes"] == 360
+    assert product["last_checked_at"] is not None
+    assert product["next_check_at"] is not None
+    assert product["consecutive_failures"] == 0
+
+    runs = client.get(f"/products/{product['id']}/runs", headers=auth).json()
+    assert len(runs) == 1
+    assert (runs[0]["trigger"], runs[0]["status"], runs[0]["source"]) == ("create", "success", "json_ld")
+
+
+def test_check_now_enqueues_and_is_owner_only(client, auth, enqueued):
+    pid = create(client, auth).json()["id"]
+    res = client.post(f"/products/{pid}/check", headers=auth)
+    assert res.status_code == 202
+    assert enqueued == [pid]
+
+    other = signup_and_login(client, email="other@example.com")
+    assert client.post(f"/products/{pid}/check", headers=other).status_code == 404
+    assert client.get(f"/products/{pid}/runs", headers=other).status_code == 404
+    assert enqueued == [pid]  # the intruder's call queued nothing
+
+
+def test_check_now_reports_queue_down(client, auth):
+    from app.main import app
+    from app.routers.products import get_enqueue
+
+    def broken(product_id):
+        raise ConnectionError("redis down")
+
+    app.dependency_overrides[get_enqueue] = lambda: broken
+    pid = create(client, auth).json()["id"]
+    assert client.post(f"/products/{pid}/check", headers=auth).status_code == 503
+
+
+def test_patch_interval_reschedules_and_validates(client, auth):
+    product = create(client, auth).json()
+    res = client.patch(f"/products/{product['id']}", json={"check_interval_minutes": 30}, headers=auth)
+    assert res.json()["check_interval_minutes"] == 30
+    assert res.json()["next_check_at"] != product["next_check_at"]
+
+    assert client.patch(f"/products/{product['id']}", json={"check_interval_minutes": 5}, headers=auth).status_code == 422
+    # null can't clear a required field; it is ignored
+    res = client.patch(f"/products/{product['id']}", json={"check_interval_minutes": None}, headers=auth)
+    assert res.json()["check_interval_minutes"] == 30
+
+
+def test_delete_removes_runs_too(client, auth):
+    pid = create(client, auth).json()["id"]
+    assert client.delete(f"/products/{pid}", headers=auth).status_code == 204

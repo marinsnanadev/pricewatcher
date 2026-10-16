@@ -32,4 +32,16 @@ python -m pytest
 | GET/PATCH/DELETE | `/products/{id}` | |
 | GET | `/products/{id}/history` | price history |
 
-`app/services/scraper_stub.py` is a placeholder until the real scrapers (batch 6).
+## Scraping
+
+`app/services/scraping/` — one scraper per store (`amazon.py`, `mercadolivre.py`), each trying
+**JSON-LD → store markup → OpenGraph meta** and returning which layer worked (`source`).
+Adding a store = one new class + one line in `registry.py`.
+
+Try it against a real product:
+
+```bash
+python -m app.services.scraping "https://www.amazon.com.br/dp/XXXXXXXXXX"
+```
+
+Stores may answer with a captcha (`BlockedError`); retries/scheduling come in the jobs batch.

@@ -6,6 +6,15 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.routers.products import get_scrape_fn
+from app.services.scraping import ScrapeResult, UnsupportedStoreError
+
+
+def fake_scrape(url: str) -> ScrapeResult:
+    """Offline stand-in for the real scraper used by API tests."""
+    if "unsupported" in url:
+        raise UnsupportedStoreError("This store isn't supported yet")
+    return ScrapeResult(name="Fone Bluetooth Pro", store="mercado_livre", price=149.9, source="json_ld")
 
 
 @pytest.fixture()
@@ -27,6 +36,7 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_scrape_fn] = lambda: fake_scrape
     yield TestClient(app)
     app.dependency_overrides.clear()
 

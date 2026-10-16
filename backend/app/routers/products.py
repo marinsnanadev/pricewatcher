@@ -6,9 +6,21 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import PriceHistory, Product, User
 from ..schemas import PriceOut, ProductCreate, ProductOut, ProductUpdate
-from ..services import scraper_stub
+from ..services.scraping import (
+    FetchError,
+    ParseError,
+    ScrapeError,
+    ScrapeResult,
+    UnsupportedStoreError,
+    scrape,
+)
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+def get_scrape_fn():
+    """Dependency so tests can swap the real network scraper for a fake one."""
+    return scrape
 
 
 def get_owned_product(product_id: str, user: User, db: Session) -> Product:
@@ -18,6 +30,18 @@ def get_owned_product(product_id: str, user: User, db: Session) -> Product:
     if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Product not found")
     return product
+
+
+def run_scrape(scrape_fn, url: str) -> ScrapeResult:
+    """Runs the scraper and translates scraping errors into HTTP errors."""
+    try:
+        return scrape_fn(url)
+    except (UnsupportedStoreError, ParseError) as exc:
+        raise HTTPException(422, str(exc))
+    except FetchError as exc:  # includes BlockedError
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
+    except ScrapeError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
 
 
 @router.get("", response_model=list[ProductOut])
@@ -32,12 +56,13 @@ def create_product(
     payload: ProductCreate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    scrape_fn=Depends(get_scrape_fn),
 ):
     url = payload.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(422, "Enter a valid product URL")
 
-    result = scraper_stub.scrape(url)
+    result = run_scrape(scrape_fn, url)
     product = Product(
         user_id=user.id,
         url=url,

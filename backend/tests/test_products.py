@@ -12,6 +12,8 @@ def test_create_product_seeds_history(client, auth):
     assert res.status_code == 201
     product = res.json()
     assert product["store"] == "mercado_livre"
+    assert product["name"] == "Fone Bluetooth Pro"
+    assert product["current_price"] == 149.9
     assert product["target_price"] == 99.9
     assert product["active"] is True
 
@@ -23,6 +25,12 @@ def test_create_product_seeds_history(client, auth):
 def test_create_rejects_invalid_url(client, auth):
     res = client.post("/products", json={"url": "not-a-url"}, headers=auth)
     assert res.status_code == 422
+
+
+def test_create_maps_scrape_errors_to_http(client, auth):
+    res = client.post("/products", json={"url": "https://unsupported.example/x"}, headers=auth)
+    assert res.status_code == 422
+    assert "supported" in res.json()["detail"]
 
 
 def test_list_get_update_delete(client, auth):

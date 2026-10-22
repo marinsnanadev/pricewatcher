@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.routers.notifications import get_enqueue_delivery
 from app.routers.products import get_enqueue, get_scrape_fn
 from app.services.scraping import ScrapeResult, UnsupportedStoreError
 
@@ -42,7 +43,13 @@ def enqueued():
 
 
 @pytest.fixture()
-def client(session_factory, enqueued):
+def deliveries():
+    """Records the notification ids the API asked the queue to deliver."""
+    return []
+
+
+@pytest.fixture()
+def client(session_factory, enqueued, deliveries):
     TestingSession = session_factory
 
     def override_get_db():
@@ -55,6 +62,7 @@ def client(session_factory, enqueued):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_scrape_fn] = lambda: fake_scrape
     app.dependency_overrides[get_enqueue] = lambda: enqueued.append
+    app.dependency_overrides[get_enqueue_delivery] = lambda: deliveries.append
     yield TestClient(app)
     app.dependency_overrides.clear()
 

@@ -15,5 +15,9 @@ celery_app.conf.update(
             "task": "app.tasks.dispatch_due",
             "schedule": float(settings.dispatch_every_seconds),
         },
+        "retry-pending-notifications": {
+            "task": "app.tasks.retry_pending_notifications",
+            "schedule": 300.0,
+        },
     },
 )

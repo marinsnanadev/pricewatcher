@@ -1,8 +1,14 @@
 import logging
+from datetime import timedelta
+
+from sqlalchemy import select
 
 from .celery_app import celery_app
 from .database import SessionLocal
+from .models import Notification, utcnow
 from .services.checker import check_product
+from .services.notifiers.deliver import MAX_ATTEMPTS, deliver_notification
+from .services.notifiers.errors import DeliveryError
 from .services.scheduling import dispatch_due_products
 from .services.scraping import FetchError, ScrapeError, scrape
 
@@ -34,7 +40,49 @@ def check_product_task(self, product_id: str, trigger: str = "scheduled"):
             # parse/unsupported errors won't fix themselves on retry; already recorded
             log.warning("product %s: %s", product_id, exc)
             return {"status": "error", "error": str(exc)}
+    # Queue deliveries only after the alert rows are committed. If the broker hiccups
+    # here nothing is lost: pending rows are picked up by retry_pending_notifications.
+    for notification_id in outcome.notification_ids:
+        try:
+            deliver_notification_task.delay(notification_id)
+        except Exception:
+            log.exception("couldn't queue notification %s (sweeper will retry)", notification_id)
     return {"status": outcome.status, "changed": outcome.changed}
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.deliver_notification",
+    autoretry_for=(DeliveryError,),
+    retry_backoff=60,  # 1m, 2m, 4m, 8m, 16m
+    retry_backoff_max=1800,
+    retry_jitter=True,
+    max_retries=MAX_ATTEMPTS - 1,
+)
+def deliver_notification_task(self, notification_id: str):
+    with SessionLocal() as db:
+        return deliver_notification(
+            db, notification_id, final_attempt=self.request.retries >= self.max_retries
+        )
+
+
+@celery_app.task(name="app.tasks.retry_pending_notifications")
+def retry_pending_notifications():
+    """Safety net (runs via beat): pending notifications nobody is working on, e.g.
+    the broker was down when they were created. Old enough to not race with the
+    normal flow, and recent enough to not resurrect ancient alerts."""
+    now = utcnow()
+    with SessionLocal() as db:
+        ids = db.scalars(
+            select(Notification.id).where(
+                Notification.status == "pending",
+                Notification.created_at <= now - timedelta(minutes=5),
+                Notification.created_at >= now - timedelta(days=2),
+            ).limit(100)
+        ).all()
+    for notification_id in ids:
+        deliver_notification_task.delay(notification_id)
+    return len(ids)
 
 
 @celery_app.task(name="app.tasks.dispatch_due")

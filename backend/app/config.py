@@ -13,6 +13,18 @@ class Settings(BaseSettings):
     dispatch_every_seconds: int = 60  # how often beat looks for due products
     dispatch_batch_size: int = 200
     start_jitter_seconds: int = 120  # random delay before a job starts
+    # --- alerts ---
+    alert_cooldown_hours: int = 6  # min gap before a "further drop" re-alert
+    alert_further_drop_percent: float = 3.0  # how much lower than the last alert counts as news
+    webhook_timeout_seconds: float = 10.0
+    allow_private_webhooks: bool = False  # True only for local dev (localhost receivers)
+    email_backend: str = "console"  # console (just logs) | smtp
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_from: str = "Price Watcher <alerts@pricewatcher.local>"
     cors_origins: str = "http://localhost:5174,http://localhost:5173"
 
     @property

@@ -9,6 +9,7 @@ from ..deps import get_current_user
 from ..config import settings
 from ..models import PriceHistory, Product, ScrapeRun, User, utcnow
 from ..schemas import PriceOut, ProductCreate, ProductOut, ProductUpdate, ScrapeRunOut
+from ..services.alerts import initial_armed
 from ..services.scheduling import next_check_time
 from ..services.scraping import (
     FetchError,
@@ -92,6 +93,7 @@ def create_product(
         target_price=payload.target_price,
         check_interval_minutes=settings.default_check_interval_minutes,
         last_checked_at=now,
+        alert_armed=initial_armed(payload.target_price, result.price),
     )
     product.next_check_at = next_check_time(product, now)
     product.history.append(PriceHistory(price=result.price, collected_at=now))
@@ -132,6 +134,11 @@ def update_product(
         if value is None and field != "target_price":
             continue  # active / interval can't be cleared
         setattr(product, field, value)
+    if "target_price" in changes:
+        # new target = fresh start for alerts (stay quiet if we're already under it)
+        product.alert_armed = initial_armed(product.target_price, product.current_price)
+        product.last_alert_at = None
+        product.last_alert_price = None
     if changes.get("check_interval_minutes"):
         product.next_check_at = next_check_time(product, utcnow())
     db.commit()

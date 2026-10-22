@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +22,11 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    notify_email: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=sa.true()
+    )
+    webhook_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    webhook_secret: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     products: Mapped[list["Product"]] = relationship(
@@ -52,6 +58,14 @@ class Product(Base):
     consecutive_failures: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0"
     )
+    # alert state: "armed" = the next time price <= target we should alert
+    alert_armed: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=sa.true()
+    )
+    last_alert_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_alert_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped[User] = relationship(back_populates="products")
@@ -102,3 +116,31 @@ class ScrapeRun(Base):
     )
 
     product: Mapped[Product] = relationship(back_populates="runs")
+
+
+class Notification(Base):
+    """Outbox of alerts. A row is created in the same transaction as the price
+    update (so an alert is never lost); a worker then delivers it and marks it sent."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    product_id: Mapped[str | None] = mapped_column(
+        ForeignKey("products.id"), nullable=True, index=True
+    )  # null for test notifications
+    channel: Mapped[str] = mapped_column(String(10))  # email | webhook
+    reason: Mapped[str] = mapped_column(String(20))  # target_reached | further_drop | test
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    previous_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(10), default="pending", index=True)  # pending|sent|failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User] = relationship()
+    product: Mapped[Product | None] = relationship()

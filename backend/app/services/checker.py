@@ -4,12 +4,13 @@ Plain functions that take a DB session, so they are testable without Celery
 or Redis. The Celery task in app/tasks.py is just a thin wrapper around this.
 """
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from ..models import PriceHistory, Product, ScrapeRun, utcnow
+from .alerts import queue_alerts
 from .scraping import ScrapeError, scrape
 
 # Even if the price didn't move, keep one point per day so the chart shows
@@ -23,6 +24,7 @@ class CheckOutcome:
     status: str  # success | skipped
     price_before: float | None = None
     price_after: float | None = None
+    notification_ids: list[str] = field(default_factory=list)
 
     @property
     def changed(self) -> bool:
@@ -98,6 +100,13 @@ def check_product(
     run.source = result.source
     run.duration_ms = int((time.perf_counter() - clock) * 1000)
     record_price(product, result.price, started)
+    notifications = queue_alerts(db, product, before, result.price, started)
     db.add(run)
-    db.commit()
-    return CheckOutcome(product.id, "success", price_before=before, price_after=result.price)
+    db.commit()  # price, run and alert rows land together (or not at all)
+    return CheckOutcome(
+        product.id,
+        "success",
+        price_before=before,
+        price_after=result.price,
+        notification_ids=[n.id for n in notifications],  # ids exist after the commit
+    )

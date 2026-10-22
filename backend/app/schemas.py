@@ -74,3 +74,32 @@ class ScrapeRunOut(BaseModel):
     error_message: str | None
     duration_ms: int
     started_at: datetime
+
+
+class NotificationSettingsOut(BaseModel):
+    email_enabled: bool
+    email: EmailStr
+    webhook_url: str | None
+    webhook_secret: str | None
+
+
+class NotificationSettingsUpdate(BaseModel):
+    email_enabled: bool | None = None
+    webhook_url: str | None = None  # explicit null removes the webhook
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    product_id: str | None
+    channel: str
+    reason: str
+    price: float | None
+    previous_price: float | None
+    target_price: float | None
+    status: str
+    attempts: int
+    error: str | None
+    created_at: datetime
+    sent_at: datetime | None

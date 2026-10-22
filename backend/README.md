@@ -102,6 +102,60 @@ How it works:
   The price history only grows when the price moves, plus one heartbeat point per day.
 - `POST /products/{id}/check` queues a check right now; `GET /products/{id}/runs` shows the latest attempts.
 
+## Alerts (email + signed webhook)
+
+When a check finds a price at or below the product's `target_price`, the user is notified.
+
+**When an alert fires** (per product, only if a target is set):
+
+- `target_reached`: price <= target while the alert is *armed*. Alerting disarms it.
+- Price climbs back above the target -> armed again.
+- `further_drop`: already alerted, but the price fell another 3% below the last alerted price
+  **and** 6h passed. Anything else stays quiet, so you never get the same alert ten times.
+- A product created already under its target doesn't alert instantly; it waits for a climb first.
+
+**How it is delivered** (outbox pattern): the `notifications` row is saved in the *same transaction*
+as the new price, then a worker delivers it. If Redis is down at that moment nothing is lost:
+a beat task (`retry_pending_notifications`) re-queues pending rows every 5 minutes.
+Deliveries retry up to 5 times with exponential backoff; a notification is never sent twice.
+
+**Endpoints**
+
+| Method | Path | |
+|---|---|---|
+| GET/PUT | `/settings/notifications` | `email_enabled`, `webhook_url` (null removes it) |
+| POST | `/settings/notifications/rotate-secret` | new webhook signing secret |
+| POST | `/settings/notifications/test` | sends a test through every enabled channel |
+| GET | `/notifications` | delivery history (`?product_id=`) |
+
+**Email:** `EMAIL_BACKEND=console` (default) only prints the email in the worker log.
+Use `EMAIL_BACKEND=smtp` plus the `SMTP_*` variables to really send.
+
+**Webhook:** a JSON `POST` with these headers:
+
+- `X-PriceWatcher-Event`: `price.alert` or `webhook.test`
+- `X-PriceWatcher-Delivery`: unique id (use it to ignore duplicates)
+- `X-PriceWatcher-Signature`: `t=<unix time>,v1=<hex>`
+
+Verify it by computing `HMAC-SHA256(secret, "<t>.<raw body>")`, comparing with `v1` in constant
+time, and rejecting old timestamps (replay protection). Python example:
+
+```python
+import hashlib, hmac, time
+
+def verify(secret: str, header: str, raw_body: bytes) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    if abs(time.time() - int(parts["t"])) > 300:
+        return False
+    expected = hmac.new(secret.encode(), parts["t"].encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, parts["v1"])
+```
+
+**Security:** webhook URLs can't point to localhost / private / cloud-metadata addresses (SSRF).
+This is checked when saving *and* again right before sending (a hostname can change where it
+points), and redirects are not followed. For local testing only, set `ALLOW_PRIVATE_WEBHOOKS=true`
+(or use a public inspector such as webhook.site).
+
 ## Tests
 
 ```bash

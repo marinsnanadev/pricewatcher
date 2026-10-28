@@ -25,3 +25,13 @@ class MercadoLivreScraper(BaseScraper):
                     f"{fraction.get_text()},{cents.get_text() if cents else '00'}"
                 )
         return name, price
+
+    def list_price(self, soup: BeautifulSoup):
+        block = soup.select_one(".ui-pdp-price__original-value .andes-money-amount")
+        if not block:
+            return None
+        fraction = block.select_one(".andes-money-amount__fraction")
+        cents = block.select_one(".andes-money-amount__cents")
+        if not fraction:
+            return None
+        return parse_br_price(f"{fraction.get_text()},{cents.get_text() if cents else '00'}")

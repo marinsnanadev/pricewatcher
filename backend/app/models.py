@@ -43,6 +43,7 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(500))
     store: Mapped[str] = mapped_column(String(50))
     current_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    list_price: Mapped[float | None] = mapped_column(Float, nullable=True)  # struck-through price, if any
     target_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -74,6 +75,9 @@ class Product(Base):
         cascade="all, delete-orphan",
         order_by="PriceHistory.collected_at",
     )
+    insight: Mapped["ProductInsight | None"] = relationship(
+        cascade="all, delete-orphan", uselist=False
+    )
     runs: Mapped[list["ScrapeRun"]] = relationship(
         back_populates="product",
         cascade="all, delete-orphan",
@@ -87,6 +91,7 @@ class PriceHistory(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), index=True)
     price: Mapped[float] = mapped_column(Float)
+    list_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, index=True
     )
@@ -144,3 +149,16 @@ class Notification(Base):
 
     user: Mapped[User] = relationship()
     product: Mapped[Product | None] = relationship()
+
+
+class ProductInsight(Base):
+    """Cached AI/rule verdict for a product, so the (paid, slow) AI call only happens
+    when the numbers actually changed."""
+
+    __tablename__ = "product_insights"
+
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    verdict_json: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(10))  # gemini | rules
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

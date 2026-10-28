@@ -16,6 +16,7 @@ class ScrapeResult:
     price: float
     currency: str = "BRL"
     source: str = ""  # which layer found the price: json_ld | markup | meta
+    list_price: float | None = None  # the struck-through "de R$ X" price, when the page shows one
 
 
 # A layer takes the parsed page and returns (name, price); either may be None.
@@ -40,6 +41,10 @@ class BaseScraper(ABC):
     def markup_layer(self, soup: BeautifulSoup) -> tuple[str | None, float | None]:
         """Store-specific CSS selectors."""
 
+    def list_price(self, soup: BeautifulSoup) -> float | None:
+        """The 'original' price shown crossed out next to the real one. Optional."""
+        return None
+
     def layers(self) -> list[tuple[str, Layer]]:
         """Order matters: first layer that yields a price wins.
         Structured data is more stable than CSS classes, so it goes first."""
@@ -58,11 +63,15 @@ class BaseScraper(ABC):
             layer_name, price = layer(soup)
             name = name or layer_name
             if price is not None:
+                list_price = self.list_price(soup)
+                if list_price is not None and list_price <= price:
+                    list_price = None  # not a real "was" price (wrong element / no discount)
                 return ScrapeResult(
                     name=name or self._title_fallback(soup),
                     store=self.store,
                     price=price,
                     source=source,
+                    list_price=list_price,
                 )
         raise ParseError(f"Couldn't find the price on this {self.store} page")
 

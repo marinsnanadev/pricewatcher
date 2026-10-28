@@ -40,6 +40,7 @@ class ProductOut(BaseModel):
     name: str
     store: str
     current_price: float | None
+    list_price: float | None
     target_price: float | None
     active: bool
     last_error: str | None
@@ -56,6 +57,7 @@ class PriceOut(BaseModel):
     id: str
     product_id: str
     price: float
+    list_price: float | None
     collected_at: datetime
 
 
@@ -103,3 +105,50 @@ class NotificationOut(BaseModel):
     error: str | None
     created_at: datetime
     sent_at: datetime | None
+
+
+class DealOut(BaseModel):
+    verdict: str
+    confidence: str
+    current_price: float
+    list_price: float | None
+    claimed_discount_pct: float | None
+    reference_price: float | None
+    real_discount_pct: float | None
+    lowest_price: float | None
+    highest_price: float | None
+    is_lowest: bool
+    flags: list[str]
+    data_points: int
+    days_tracked: float
+
+
+class VerdictOut(BaseModel):
+    action: str  # buy_now | wait | neutral
+    confidence: float
+    reasoning: str
+    source: str  # gemini | rules
+
+
+class InsightsOut(BaseModel):
+    deal: DealOut
+    stats: dict
+    verdict: VerdictOut
+    cached: bool  # True when the verdict came from the cache (no new AI call)
+    ai_available: bool  # False when no Gemini key is configured
+
+
+class StoreHealthOut(BaseModel):
+    store: str
+    status: str
+    attempts: int
+    successes: int
+    success_rate: float | None
+    p50_ms: int | None
+    p95_ms: int | None
+    layers: dict
+    errors: dict
+    diagnosis: str | None
+    last_success_at: datetime | None
+    last_failure_at: datetime | None
+    window_hours: int

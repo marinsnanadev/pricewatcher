@@ -191,6 +191,40 @@ Good to know:
 - Each open socket holds one Redis connection (pub/sub). Fine for this scale; for thousands of
   simultaneous users you'd share one subscriber per API process.
 
+## Deal check, AI verdict and store status
+
+**Is the discount real?** (`GET /products/{id}/insights`) Compares what the store *advertises*
+(the crossed-out "de R$ X" price, scraped next to the real one) with the price history we tracked:
+
+| Verdict | Meaning |
+|---|---|
+| `genuine_deal` | clearly below its usual price, at or near its lowest |
+| `fair_price` | nothing special, nothing suspicious |
+| `price_above_usual` | costs more than it normally does |
+| `misleading_discount` | advertised discount is much bigger than the real one |
+| `fake_discount` | the "original" price is fiction (nobody paid it), or the price was hiked and then "discounted" back |
+| `insufficient_data` | under ~5 checks / 7 days: it says so instead of guessing |
+
+The "usual price" is the median of the last 90 days, ignoring the last 3. Each result also says
+how confident it is (low/medium/high, from how much history there is).
+
+**Should I buy now?** Two layers: a deterministic **rule-based** verdict (always available, free),
+and, if `GEMINI_API_KEY` is set, **Gemini** writes the verdict from the same numbers. Guardrails:
+
+- Gemini only receives numbers, never the product name or page text (scraped text is untrusted).
+- Its answer is validated against a schema (action, confidence 0-1, short reasoning) and a bad
+  or empty answer, a timeout (10s) or an HTTP error falls back to the rules.
+- The deterministic checks keep a **veto**: Gemini can't say "buy now" on a fake/misleading
+  discount, a price above usual, or too little data.
+- Cost control: the verdict is cached and only recomputed when the situation really changed
+  (or after 12h). "Refresh" has a 5 minute cooldown, and each user gets 20 fresh AI calls per
+  hour; past that, the rule-based verdict is used instead of failing.
+
+**Store status** (`GET /stores/health`): per store, over the last 24h: success rate, p50/p95,
+which extraction layer found the prices, error counts and a diagnosis: `layout_changed`
+(page loaded, price not found), `blocked` (captcha) or `network`. It aggregates every user's
+checks and exposes no individual data.
+
 ## Tests
 
 ```bash
@@ -209,6 +243,8 @@ python -m pytest
 | GET | `/products/{id}/history` | price history |
 | POST | `/products/{id}/check` | queue an immediate check (202) |
 | GET | `/products/{id}/runs` | latest scraping attempts |
+| GET | `/products/{id}/insights` | deal check + buy/wait verdict (`?refresh=true`) |
+| GET | `/stores/health` | scraper health per store (last 24h) |
 
 ## Scraping
 

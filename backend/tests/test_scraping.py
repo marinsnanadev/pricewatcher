@@ -97,8 +97,22 @@ def test_amazon_picks_real_price_not_struck_list_price():
     result = scrape("https://www.amazon.com.br/dp/B0TEST", FakeFetcher(html("amazon_product.html")))
     assert result.store == "amazon"
     assert result.price == 1299.90
+    assert result.list_price == 1899.0
     assert result.name == "Fone de Ouvido Bluetooth XYZ Pro com Cancelamento de Ruído"
     assert result.source == "markup"
+
+
+def test_no_list_price_when_the_page_shows_none():
+    result = scrape("https://www.amazon.com.br/dp/B0TEST", FakeFetcher(html("amazon_whole_fraction.html")))
+    assert result.list_price is None
+    result = scrape("https://produto.mercadolivre.com.br/MLB-1", FakeFetcher(html("ml_jsonld.html")))
+    assert result.list_price is None
+
+
+def test_list_price_below_the_real_price_is_discarded():
+    page = html("amazon_product.html").replace("R$ 1.899,00", "R$ 899,00")  # nonsense "was" price
+    result = scrape("https://www.amazon.com.br/dp/B0TEST", FakeFetcher(page))
+    assert result.price == 1299.90 and result.list_price is None
 
 
 def test_amazon_whole_plus_fraction_layout():
@@ -122,7 +136,8 @@ def test_mercadolivre_prefers_json_ld():
 
 def test_mercadolivre_falls_back_to_markup():
     result = scrape("https://produto.mercadolivre.com.br/MLB-2", FakeFetcher(html("ml_markup.html")))
-    assert result.price == 1249.90  # not the struck-through 399
+    assert result.price == 1249.90  # not the struck-through 1.899
+    assert result.list_price == 1899.0
     assert result.name == "Teclado Mecânico RGB"
     assert result.source == "markup"
 

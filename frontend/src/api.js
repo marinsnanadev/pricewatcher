@@ -135,6 +135,16 @@ export const api = {
     return request(`/products/${id}/history`);
   },
 
+  // Deal check (real vs advertised discount) + buy-now/wait verdict. `refresh` asks for a new verdict.
+  getInsights(id, { refresh = false } = {}) {
+    return request(`/products/${id}/insights${refresh ? "?refresh=true" : ""}`);
+  },
+
+  // Is each store's scraper working? (last 24h, all users aggregated)
+  getStoreHealth() {
+    return request("/stores/health");
+  },
+
   // Queues a check right now; the worker answers through the live connection.
   checkNow(id) {
     return request(`/products/${id}/check`, { method: "POST" });

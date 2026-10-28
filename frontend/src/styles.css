@@ -501,3 +501,100 @@ button.link:hover {
     animation: none;
   }
 }
+
+/* ============================================================
+   Deal check + store status (batch 11)
+   ============================================================ */
+
+.chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.chip-good {
+  color: var(--drop);
+  border-color: var(--drop);
+}
+
+.chip-warn {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.chip-bad {
+  color: #d98aa0;
+  border-color: var(--rise);
+}
+
+.flag-list {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+
+.verdict-title {
+  margin-top: 20px;
+}
+
+.verdict {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  background: var(--surface-raised);
+}
+
+.verdict p {
+  margin: 6px 0 0;
+}
+
+.verdict-good {
+  border-left-color: var(--drop);
+}
+
+.verdict-warn {
+  border-left-color: var(--accent);
+}
+
+.verdict-neutral {
+  border-left-color: var(--text-muted);
+}
+
+.store-head {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.store-sub {
+  margin-bottom: 4px;
+}
+
+.layer-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.layer-seg {
+  display: block;
+  height: 100%;
+}
+
+.layer-0 {
+  background: var(--drop);
+}
+
+.layer-1 {
+  background: var(--accent);
+}
+
+.layer-2 {
+  background: var(--text-muted);
+}

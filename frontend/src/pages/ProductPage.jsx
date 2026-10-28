@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import PriceChart from "../components/PriceChart.jsx";
+import InsightsPanel from "../components/InsightsPanel.jsx";
 import LiveBadge from "../components/LiveBadge.jsx";
 import { formatDate, formatDateTime, formatPrice, percentChange, storeLabel } from "../lib/format.js";
 import { applyChecked, applyCheckedToHistory } from "../lib/live.js";
@@ -181,6 +182,8 @@ export default function ProductPage() {
           </div>
         )}
       </div>
+
+      <InsightsPanel productId={id} />
 
       <form className="panel" onSubmit={saveTarget} noValidate>
         <h2>Alert settings</h2>

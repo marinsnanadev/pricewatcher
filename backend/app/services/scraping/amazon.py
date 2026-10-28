@@ -43,3 +43,11 @@ class AmazonScraper(BaseScraper):
                 cents = "".join(c for c in (fraction.get_text() if fraction else "") if c.isdigit())
                 price = parse_br_price(f"{digits},{cents or '00'}")
         return name, price
+
+    def list_price(self, soup: BeautifulSoup):
+        tag = soup.select_one(
+            "#corePrice_feature_div .a-price.a-text-price .a-offscreen, "
+            "#corePriceDisplay_desktop_feature_div .a-price.a-text-price .a-offscreen, "
+            ".basisPrice .a-offscreen"
+        )
+        return parse_br_price(tag.get_text()) if tag else None

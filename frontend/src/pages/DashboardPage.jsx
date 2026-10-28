@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import ProductForm from "../components/ProductForm.jsx";
@@ -44,6 +45,7 @@ export default function DashboardPage() {
       <div className="topbar">
         <h1>Price Watcher</h1>
         <div className="row">
+          <Link to="/status" className="muted">Store status</Link>
           <LiveBadge />
           <span className="muted mono">{user.email}</span>
           <button type="button" className="secondary" onClick={logout}>

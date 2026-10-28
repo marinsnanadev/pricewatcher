@@ -42,7 +42,7 @@ def _as_aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=utcnow().tzinfo)
 
 
-def record_price(product: Product, price: float, now: datetime) -> bool:
+def record_price(product: Product, price: float, now: datetime, list_price: float | None = None) -> bool:
     """Updates current_price and appends to the history when it's worth it.
     Returns True when a history point was added."""
     last = product.history[-1] if product.history else None
@@ -50,8 +50,9 @@ def record_price(product: Product, price: float, now: datetime) -> bool:
     stale = last is not None and now - _as_aware(last.collected_at) >= HEARTBEAT
     recorded = moved or stale
     if recorded:
-        product.history.append(PriceHistory(price=price, collected_at=now))
+        product.history.append(PriceHistory(price=price, list_price=list_price, collected_at=now))
     product.current_price = price
+    product.list_price = list_price
     product.last_error = None
     product.consecutive_failures = 0
     product.last_checked_at = now
@@ -104,7 +105,7 @@ def check_product(
     run.price = result.price
     run.source = result.source
     run.duration_ms = int((time.perf_counter() - clock) * 1000)
-    recorded = record_price(product, result.price, started)
+    recorded = record_price(product, result.price, started, result.list_price)
     notifications = queue_alerts(db, product, before, result.price, started)
     db.add(run)
     db.commit()  # price, run and alert rows land together (or not at all)

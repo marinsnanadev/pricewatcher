@@ -4,6 +4,7 @@ import RequireAuth from "./auth/RequireAuth.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import StatusPage from "./pages/StatusPage.jsx";
 import { RealtimeProvider } from "./realtime/RealtimeContext.jsx";
 
 export default function App() {
@@ -26,6 +27,14 @@ export default function App() {
           element={
             <RequireAuth>
               <ProductPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/status"
+          element={
+            <RequireAuth>
+              <StatusPage />
             </RequireAuth>
           }
         />

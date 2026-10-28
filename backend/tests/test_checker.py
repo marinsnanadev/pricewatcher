@@ -97,3 +97,19 @@ def test_inactive_or_missing_products_are_skipped(db):
     assert check_product(db, product.id, scrape_fn=boom).status == "skipped"
     assert check_product(db, "does-not-exist", scrape_fn=boom).status == "skipped"
     assert db.query(ScrapeRun).count() == 0
+
+
+def test_list_price_is_recorded_with_the_price(db):
+    product = make_product(db, current_price=100.0)
+    fn = lambda url: ScrapeResult(name="x", store="amazon", price=80.0, source="markup", list_price=120.0)  # noqa: E731
+    check_product(db, product.id, scrape_fn=fn)
+    db.refresh(product)
+    assert product.list_price == 120.0
+    assert product.history[-1].list_price == 120.0
+
+
+def test_list_price_is_cleared_when_the_store_stops_showing_one(db):
+    product = make_product(db, current_price=100.0, list_price=150.0)
+    check_product(db, product.id, scrape_fn=scrape_returning(100.0))
+    db.refresh(product)
+    assert product.list_price is None

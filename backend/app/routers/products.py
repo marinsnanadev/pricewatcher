@@ -90,13 +90,14 @@ def create_product(
         name=result.name,
         store=result.store,
         current_price=result.price,
+        list_price=result.list_price,
         target_price=payload.target_price,
         check_interval_minutes=settings.default_check_interval_minutes,
         last_checked_at=now,
         alert_armed=initial_armed(payload.target_price, result.price),
     )
     product.next_check_at = next_check_time(product, now)
-    product.history.append(PriceHistory(price=result.price, collected_at=now))
+    product.history.append(PriceHistory(price=result.price, list_price=result.list_price, collected_at=now))
     product.runs.append(
         ScrapeRun(
             store=result.store,

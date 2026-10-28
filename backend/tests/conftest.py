@@ -4,10 +4,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
+from app.database import Base, get_db, get_session_factory
 from app.main import app
 from app.routers.notifications import get_enqueue_delivery
 from app.routers.products import get_enqueue, get_scrape_fn
+from app.services import realtime
+from app.services.realtime import get_event_bus as real_get_event_bus  # the key the router depends on
+from tests.fakes import InMemoryEventBus
 from app.services.scraping import ScrapeResult, UnsupportedStoreError
 
 
@@ -42,6 +45,14 @@ def enqueued():
     return []
 
 
+@pytest.fixture(autouse=True)
+def bus(monkeypatch):
+    """No test ever talks to a real Redis: workers publish to this in-memory bus."""
+    fake = InMemoryEventBus()
+    monkeypatch.setattr(realtime, "get_event_bus", lambda: fake)
+    return fake
+
+
 @pytest.fixture()
 def deliveries():
     """Records the notification ids the API asked the queue to deliver."""
@@ -49,7 +60,7 @@ def deliveries():
 
 
 @pytest.fixture()
-def client(session_factory, enqueued, deliveries):
+def client(session_factory, enqueued, deliveries, bus):
     TestingSession = session_factory
 
     def override_get_db():
@@ -63,6 +74,8 @@ def client(session_factory, enqueued, deliveries):
     app.dependency_overrides[get_scrape_fn] = lambda: fake_scrape
     app.dependency_overrides[get_enqueue] = lambda: enqueued.append
     app.dependency_overrides[get_enqueue_delivery] = lambda: deliveries.append
+    app.dependency_overrides[real_get_event_bus] = lambda: bus
+    app.dependency_overrides[get_session_factory] = lambda: TestingSession
     yield TestClient(app)
     app.dependency_overrides.clear()
 

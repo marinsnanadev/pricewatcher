@@ -4,10 +4,12 @@ import RequireAuth from "./auth/RequireAuth.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import { RealtimeProvider } from "./realtime/RealtimeContext.jsx";
 
 export default function App() {
   return (
     <AuthProvider>
+      <RealtimeProvider>
       <Routes>
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<AuthPage />} />
@@ -29,6 +31,7 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </RealtimeProvider>
     </AuthProvider>
   );
 }

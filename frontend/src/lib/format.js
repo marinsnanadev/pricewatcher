@@ -26,3 +26,14 @@ const dateFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "sho
 export function formatDate(iso) {
   return dateFmt.format(new Date(iso));
 }
+
+const dateTimeFmt = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+export function formatDateTime(iso) {
+  return iso ? dateTimeFmt.format(new Date(iso)) : "—";
+}

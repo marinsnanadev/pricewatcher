@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { formatPrice, percentChange, storeLabel } from "../lib/format.js";
 
 export default function TickerRow({ product }) {
-  const { id, name, store, current_price, target_price, previousPrice, active, last_error } = product;
+  const { id, name, store, current_price, target_price, previousPrice, active, last_error, flash, flashKey } = product;
 
   const belowTarget = target_price != null && current_price <= target_price;
   const change = percentChange(current_price, previousPrice);
@@ -20,7 +20,11 @@ export default function TickerRow({ product }) {
 
       <div className="ticker-row-prices">
         <div className="price-with-delta">
-          <span className={`price ${belowTarget ? "below-target" : ""}`}>
+          {/* new key on every live price change, so the highlight animation replays */}
+          <span
+            key={flashKey ?? 0}
+            className={`price ${belowTarget ? "below-target" : ""} ${flash ? `flash-${flash}` : ""}`}
+          >
             {formatPrice(current_price)}
           </span>
           {change != null && (

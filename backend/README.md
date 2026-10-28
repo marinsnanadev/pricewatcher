@@ -156,6 +156,41 @@ This is checked when saving *and* again right before sending (a hostname can cha
 points), and redirects are not followed. For local testing only, set `ALLOW_PRIVATE_WEBHOOKS=true`
 (or use a public inspector such as webhook.site).
 
+## Live updates (WebSocket)
+
+The dashboard updates by itself when the worker finishes a check: the price changes in place
+(with a green/red flash), the chart gets the new point, and a toast pops up when an alert fires.
+
+```
+worker ──publish──▶ Redis pub/sub (channel per user) ──▶ API /ws ──▶ browser tabs
+```
+
+The worker and the API are different processes, so they talk through Redis. Several API
+instances work too: each one subscribes to the channels of its connected users.
+
+**Protocol** (`/ws`):
+
+| Direction | Message |
+|---|---|
+| client → server | `{"type":"auth","token":"<jwt>"}` as the **first** message (5s limit). The token goes in the message, never in the URL, so it can't leak into access logs. |
+| server → client | `{"type":"ready"}` once subscribed. Everything that happens after this reaches the client. |
+| server → client | `{"type":"product.checked","data":{...}}` after every check (price, check times, error). |
+| server → client | `{"type":"alert.triggered","data":{...}}` when a price alert fires. |
+| server → client | `{"type":"heartbeat"}` every 25s when idle (keeps proxies from closing the socket). |
+| client → server | `ping` → `{"type":"pong"}` |
+| close code `4401` | auth failed: the client must **not** retry, the user has to sign in again. |
+
+Good to know:
+
+- Events are live-only (no replay). So the frontend refetches from the REST API every time it
+  **re**-connects, and treats the WebSocket as an optimization, never as the source of truth.
+- Publishing is best-effort: if Redis hiccups, the check still succeeds and is saved.
+- Failed fetches are retried by Celery; the error event is only sent after the last retry,
+  so the UI doesn't flicker.
+- Behind nginx/Caddy/etc. the proxy must allow the WebSocket upgrade (`Upgrade` and `Connection` headers).
+- Each open socket holds one Redis connection (pub/sub). Fine for this scale; for thousands of
+  simultaneous users you'd share one subscriber per API process.
+
 ## Tests
 
 ```bash

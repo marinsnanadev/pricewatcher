@@ -368,3 +368,136 @@ button.link:hover {
     transition: none !important;
   }
 }
+
+/* ============================================================
+   Live updates (batch 10)
+   ============================================================ */
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.live-live {
+  color: var(--drop);
+}
+
+.live-live .live-dot {
+  background: var(--drop);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+.live-connecting .live-dot,
+.live-reconnecting .live-dot {
+  background: var(--accent);
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 174, 148, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(79, 174, 148, 0);
+  }
+}
+
+/* A price that just changed flashes in the direction it moved. */
+.flash-down {
+  animation: flash-down 1.8s ease-out;
+}
+
+.flash-up {
+  animation: flash-up 1.8s ease-out;
+}
+
+@keyframes flash-down {
+  from {
+    background: rgba(79, 174, 148, 0.35);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes flash-up {
+  from {
+    background: rgba(168, 84, 107, 0.35);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+.check-row {
+  margin-top: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 50;
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--drop);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.toast a {
+  flex: 1;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.toast-price {
+  display: block;
+  color: var(--drop);
+  margin-top: 2px;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0 4px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  background: none;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-down,
+  .flash-up,
+  .live-live .live-dot {
+    animation: none;
+  }
+}

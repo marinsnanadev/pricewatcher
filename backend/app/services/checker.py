@@ -25,6 +25,8 @@ class CheckOutcome:
     price_before: float | None = None
     price_after: float | None = None
     notification_ids: list[str] = field(default_factory=list)
+    alert_reason: str | None = None
+    recorded: bool = False  # True when a new point was added to the price history
 
     @property
     def changed(self) -> bool:
@@ -40,17 +42,20 @@ def _as_aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=utcnow().tzinfo)
 
 
-def record_price(product: Product, price: float, now: datetime) -> None:
-    """Updates current_price and appends to the history when it's worth it."""
+def record_price(product: Product, price: float, now: datetime) -> bool:
+    """Updates current_price and appends to the history when it's worth it.
+    Returns True when a history point was added."""
     last = product.history[-1] if product.history else None
     moved = last is None or round(last.price, 2) != round(price, 2)
     stale = last is not None and now - _as_aware(last.collected_at) >= HEARTBEAT
-    if moved or stale:
+    recorded = moved or stale
+    if recorded:
         product.history.append(PriceHistory(price=price, collected_at=now))
     product.current_price = price
     product.last_error = None
     product.consecutive_failures = 0
     product.last_checked_at = now
+    return recorded
 
 
 def check_product(
@@ -99,7 +104,7 @@ def check_product(
     run.price = result.price
     run.source = result.source
     run.duration_ms = int((time.perf_counter() - clock) * 1000)
-    record_price(product, result.price, started)
+    recorded = record_price(product, result.price, started)
     notifications = queue_alerts(db, product, before, result.price, started)
     db.add(run)
     db.commit()  # price, run and alert rows land together (or not at all)
@@ -109,4 +114,6 @@ def check_product(
         price_before=before,
         price_after=result.price,
         notification_ids=[n.id for n in notifications],  # ids exist after the commit
+        alert_reason=notifications[0].reason if notifications else None,
+        recorded=recorded,
     )

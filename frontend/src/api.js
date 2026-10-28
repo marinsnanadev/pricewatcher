@@ -2,7 +2,7 @@
 //
 // The backend URL comes from VITE_API_URL (e.g. in frontend/.env.local);
 // it defaults to the local dev server, which already allows this origin via CORS.
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+export const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 const TOKEN_KEY = "pw_token";
 
@@ -133,5 +133,10 @@ export const api = {
 
   getHistory(id) {
     return request(`/products/${id}/history`);
+  },
+
+  // Queues a check right now; the worker answers through the live connection.
+  checkNow(id) {
+    return request(`/products/${id}/check`, { method: "POST" });
   },
 };

@@ -22,3 +22,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def get_session_factory():
+    """For code that needs short-lived sessions of its own (e.g. the WebSocket
+    handler, which must not hold a DB connection for as long as the socket lives)."""
+    return SessionLocal

@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import PriceChart from "../components/PriceChart.jsx";
-import { formatDate, formatPrice, percentChange, storeLabel } from "../lib/format.js";
+import LiveBadge from "../components/LiveBadge.jsx";
+import { formatDate, formatDateTime, formatPrice, percentChange, storeLabel } from "../lib/format.js";
+import { applyChecked, applyCheckedToHistory } from "../lib/live.js";
+import { useRealtimeEvent, useRealtimeStatus } from "../realtime/RealtimeContext.jsx";
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -15,6 +18,9 @@ export default function ProductPage() {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(""); // which action is running: "save" | "toggle" | "delete"
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [checking, setChecking] = useState(false); // a "check now" is waiting for the worker
+  const checkTimer = useRef(null);
+  const { epoch } = useRealtimeStatus();
 
   const load = useCallback(async () => {
     const [p, h] = await Promise.all([api.getProduct(id), api.getHistory(id)]);
@@ -23,9 +29,37 @@ export default function ProductPage() {
     setTargetInput(p.target_price != null ? String(p.target_price) : "");
   }, [id]);
 
+  // Loads on mount and again after a live-connection re-connect (missed events aren't replayed).
   useEffect(() => {
     load().catch((err) => setLoadError(err.message || "Could not load this product"));
-  }, [load]);
+  }, [load, epoch]);
+
+  useEffect(() => () => clearTimeout(checkTimer.current), []);
+
+  // The worker finished a check of THIS product: update price, chart and check times live.
+  useRealtimeEvent("product.checked", (event) => {
+    if (event.product_id !== id) return;
+    setProduct((p) => (p ? applyChecked(p, event) : p));
+    setHistory((h) => applyCheckedToHistory(h, event));
+    clearTimeout(checkTimer.current);
+    setChecking(false);
+  });
+
+  const checkNow = () => {
+    setActionError("");
+    setChecking(true);
+    api.checkNow(id).catch((err) => {
+      setActionError(err.message || "Could not queue the check");
+      setChecking(false);
+    });
+    // If the answer never arrives (worker offline, live connection down), stop waiting
+    // and just refresh what we have.
+    clearTimeout(checkTimer.current);
+    checkTimer.current = setTimeout(() => {
+      setChecking(false);
+      load().catch(() => {});
+    }, 30_000);
+  };
 
   // Runs one action, keeps the page in sync afterwards and surfaces any error.
   async function run(name, action) {
@@ -83,7 +117,7 @@ export default function ProductPage() {
     );
   }
 
-  const { name, url, store, current_price, target_price, active, last_error } = product;
+  const { name, url, store, current_price, target_price, active, last_error, last_checked_at, next_check_at } = product;
   const belowTarget = target_price != null && current_price <= target_price;
   const change = percentChange(current_price, history.at(-2)?.price);
   const lowest = history.length ? Math.min(...history.map((h) => h.price)) : null;
@@ -92,6 +126,7 @@ export default function ProductPage() {
     <div className="container">
       <div className="topbar">
         <Link to="/" className="muted">Back to products</Link>
+        <LiveBadge />
       </div>
 
       <h1>{name}</h1>
@@ -120,6 +155,21 @@ export default function ProductPage() {
           </p>
         )}
         {last_error && <p className="error">{last_error}</p>}
+
+        <div className="row check-row">
+          <button
+            type="button"
+            className="secondary"
+            onClick={checkNow}
+            disabled={checking || !active}
+            title={active ? "" : "Resume tracking to check this product"}
+          >
+            {checking ? "Checking…" : "Check now"}
+          </button>
+          <span className="muted mono">
+            Last checked {formatDateTime(last_checked_at)} · next ~{formatDateTime(next_check_at)}
+          </span>
+        </div>
 
         <PriceChart points={history} target={target_price} />
 

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import ProductForm from "../components/ProductForm.jsx";
+import LiveBadge from "../components/LiveBadge.jsx";
 import TickerRow from "../components/TickerRow.jsx";
+import { applyChecked } from "../lib/live.js";
+import { useRealtimeEvent, useRealtimeStatus } from "../realtime/RealtimeContext.jsx";
 
 // Products plus the price from the check before the latest one (for the % change).
 async function loadProducts() {
@@ -17,7 +20,10 @@ export default function DashboardPage() {
   const { user, logout } = useAuth();
   const [products, setProducts] = useState(null); // null = still loading
   const [error, setError] = useState("");
+  const { epoch } = useRealtimeStatus();
 
+  // Loads on mount and again after every live-connection re-connect, because events
+  // that happened while we were offline are not replayed.
   useEffect(() => {
     let cancelled = false;
     loadProducts()
@@ -26,13 +32,19 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [epoch]);
+
+  // A check just finished somewhere: update that row in place.
+  useRealtimeEvent("product.checked", (event) => {
+    setProducts((prev) => prev?.map((p) => (p.id === event.product_id ? applyChecked(p, event) : p)));
+  });
 
   return (
     <div className="container">
       <div className="topbar">
         <h1>Price Watcher</h1>
         <div className="row">
+          <LiveBadge />
           <span className="muted mono">{user.email}</span>
           <button type="button" className="secondary" onClick={logout}>
             Sign out

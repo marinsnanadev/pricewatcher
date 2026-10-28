@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     dispatch_every_seconds: int = 60  # how often beat looks for due products
     dispatch_batch_size: int = 200
     start_jitter_seconds: int = 120  # random delay before a job starts
+    # --- realtime (WebSocket) ---
+    ws_auth_timeout_seconds: float = 5.0  # client must authenticate this fast after connecting
+    ws_heartbeat_seconds: float = 25.0  # keeps proxies from closing idle sockets
+
     # --- alerts ---
     alert_cooldown_hours: int = 6  # min gap before a "further drop" re-alert
     alert_further_drop_percent: float = 3.0  # how much lower than the last alert counts as news
